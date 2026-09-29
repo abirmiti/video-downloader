@@ -1,7 +1,14 @@
 import os
 import tempfile
+import static_ffmpeg
 from flask import Flask, request, render_template_string, send_file
 import yt_dlp
+
+# স্বয়ংক্রিয়ভাবে ffmpeg চালু করবে
+try:
+    static_ffmpeg.add_paths()
+except Exception:
+    pass
 
 app = Flask(__name__)
 
@@ -47,12 +54,11 @@ HTML_PAGE = """<!DOCTYPE html>
       }
 
       btn.disabled = true;
-      btn.innerText = 'Downloading & preparing file...';
+      btn.innerText = 'Downloading & processing...';
       status.style.display = 'block';
       status.style.color = '#818cf8';
-      status.innerText = '⏳ Server is fetching the video. Your browser will start downloading shortly...';
+      status.innerText = '⏳ Server is downloading and processing the video. Your browser will start downloading shortly...';
 
-      // Redirect to download endpoint
       window.location.href = '/download?url=' + encodeURIComponent(url);
 
       setTimeout(() => {
@@ -60,7 +66,7 @@ HTML_PAGE = """<!DOCTYPE html>
         btn.innerText = 'Download Video';
         status.innerText = '✅ Download initiated! Check your browser downloads.';
         status.style.color = '#4ade80';
-      }, 7000);
+      }, 9000);
     }
   </script>
 </body>
@@ -80,15 +86,24 @@ def download_video():
     temp_dir = tempfile.mkdtemp()
     ydl_opts = {
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-        'format': 'best[ext=mp4]/best',
+        # সেরা ভিডিও ও অডিও কম্বাইন করবে, অথবা একক বেস্ট ফরম্যাট নিবে
+        'format': 'bv*+ba/b',
         'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            return send_file(filename, as_attachment=True)
+            ydl.download([url])
+
+        # ডাউনলোড হওয়া ফাইলটি খুঁজে বের করা
+        files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
+        if not files:
+            return "No file was generated", 500
+
+        downloaded_file = files[0]
+        return send_file(downloaded_file, as_attachment=True)
     except Exception as e:
         return f"Download Error: {str(e)}", 500
 
