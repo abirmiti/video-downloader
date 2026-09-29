@@ -4,7 +4,6 @@ import static_ffmpeg
 from flask import Flask, request, render_template_string, send_file
 import yt_dlp
 
-# স্বয়ংক্রিয়ভাবে ffmpeg চালু করবে
 try:
     static_ffmpeg.add_paths()
 except Exception:
@@ -22,7 +21,7 @@ HTML_PAGE = """<!DOCTYPE html>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background: #0f172a; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .box { width: 100%; max-width: 520px; background: #1e293b; border-radius: 16px; padding: 30px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
+    .box { width: 100%; max-width: 520px; background: #1e293b; border-radius: 16px; padding: 30px; border: 1px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.4); text-align: center; }
     h1 { font-size: 24px; margin-bottom: 8px; color: #f8fafc; }
     p { color: #94a3b8; font-size: 14px; margin-bottom: 22px; }
     input { width: 100%; padding: 13px 15px; border-radius: 10px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 14px; outline: none; margin-bottom: 15px; }
@@ -36,8 +35,8 @@ HTML_PAGE = """<!DOCTYPE html>
 <body>
   <div class="box">
     <h1>🎬 Online Video Downloader</h1>
-    <p>Paste video link (Dailymotion, YouTube, FB, etc.)</p>
-    <input type="text" id="url" placeholder="https://www.dailymotion.com/video/..." />
+    <p>Paste video link (YouTube, Dailymotion, FB, etc.)</p>
+    <input type="text" id="url" placeholder="Paste link here..." />
     <button id="btn" onclick="startDownload()">Download Video</button>
     <div id="status" class="status"></div>
   </div>
@@ -57,7 +56,7 @@ HTML_PAGE = """<!DOCTYPE html>
       btn.innerText = 'Downloading & processing...';
       status.style.display = 'block';
       status.style.color = '#818cf8';
-      status.innerText = '⏳ Server is downloading and processing the video. Your browser will start downloading shortly...';
+      status.innerText = '⏳ Server is fetching the video. Your download will start shortly...';
 
       window.location.href = '/download?url=' + encodeURIComponent(url);
 
@@ -66,7 +65,7 @@ HTML_PAGE = """<!DOCTYPE html>
         btn.innerText = 'Download Video';
         status.innerText = '✅ Download initiated! Check your browser downloads.';
         status.style.color = '#4ade80';
-      }, 9000);
+      }, 10000);
     }
   </script>
 </body>
@@ -86,18 +85,19 @@ def download_video():
     temp_dir = tempfile.mkdtemp()
     ydl_opts = {
         'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-        # সেরা ভিডিও ও অডিও কম্বাইন করবে, অথবা একক বেস্ট ফরম্যাট নিবে
-        'format': 'bv*+ba/b',
         'noplaylist': True,
-        'quiet': True,
-        'no_warnings': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.dailymotion.com/',
+        }
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        # ডাউনলোড হওয়া ফাইলটি খুঁজে বের করা
         files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
         if not files:
             return "No file was generated", 500
