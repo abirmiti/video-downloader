@@ -1,4 +1,5 @@
 yt-dlp[default]
 curl_cffi
+static-ffmpeg
 flask
 gunicorn
